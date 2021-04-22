@@ -1,20 +1,22 @@
 import { Consumer, ConsumerConfig, ConsumerSubscribeTopic, EachBatchPayload, Kafka, KafkaConfig, logLevel, SASLOptions, logCreator, EachMessagePayload } from 'kafkajs'
-import Configuration from './Configuration'
 import MessageProcessor from './MessageProcessor'
 
+const topicName = 'consumer-topic'
+const clientId = 'consumer-client'
+const brokerList = ['localhost:9092']
 export default class ConsumerFactory {
   private kafkaConsumer: Consumer
   private messageProcessor: MessageProcessor
 
-  public constructor(messageProcessor: MessageProcessor, logger: logCreator) {
+  public constructor(messageProcessor: MessageProcessor) {
     this.messageProcessor = messageProcessor
-    this.kafkaConsumer = this.createKafkaConsumer(logger)
+    this.kafkaConsumer = this.createKafkaConsumer()
   }
 
   public async startConsumer(): Promise<void> {
     const topic: ConsumerSubscribeTopic = {
-      topic: Configuration.getConsumerTopicName(),
-      fromBeginning: Configuration.getStartOffsetAtBeginning()
+      topic: topicName,
+      fromBeginning: false
     }
 
     try {
@@ -33,8 +35,8 @@ export default class ConsumerFactory {
 
   public async startBatchConsumer(): Promise<void> {
     const topic: ConsumerSubscribeTopic = {
-      topic: Configuration.getConsumerTopicName(),
-      fromBeginning: Configuration.getStartOffsetAtBeginning()
+      topic: topicName,
+      fromBeginning: false
     }
 
     try {
@@ -43,7 +45,6 @@ export default class ConsumerFactory {
 
       await this.kafkaConsumer.run({
         partitionsConsumedConcurrently: 3,
-        eachBatchAutoResolve: true,
         eachBatch: async (eatchBatchPayload: EachBatchPayload) => {
           await this.messageProcessor.processInBatch(eatchBatchPayload)
         }
@@ -57,39 +58,12 @@ export default class ConsumerFactory {
     await this.kafkaConsumer.disconnect()
   }
 
-  private createKafkaConsumer(logger: logCreator): Consumer {
-    const saslOptions: SASLOptions = {
-      mechanism: 'scram-sha-512',
-      username: Configuration.getUsername(),
-      password: Configuration.getPassword()
-    }
-
-    const kafkaConfig: KafkaConfig = {
-      clientId: Configuration.getClientId(),
-      brokers: Configuration.getBrokerList(),
-      sasl: saslOptions,
-      logLevel: logLevel.ERROR,
-      logCreator: logger,
-      connectionTimeout: 5000,
-      authenticationTimeout: 2500,
-      retry: {
-        retries: 1000
-      },
-      requestTimeout: 60000,
-      ssl: {
-        rejectUnauthorized: false
-      }
-    }
-
-    const kafka = new Kafka(kafkaConfig)
-
-    const consumerConfig: ConsumerConfig = {
-      groupId: Configuration.getGroupId(),
-      sessionTimeout: 60000,
-      heartbeatInterval: 20000
-    }
-
-    const consumer = kafka.consumer(consumerConfig)
+  private createKafkaConsumer(): Consumer {
+    const kafka = new Kafka({ 
+      clientId: clientId,
+      brokers: brokerList
+    })
+    const consumer = kafka.consumer({ groupId: 'consumer-group' })
 
     return consumer
   }

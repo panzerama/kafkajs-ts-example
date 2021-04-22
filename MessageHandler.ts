@@ -1,5 +1,4 @@
 import { Message, ProducerBatch, TopicMessages } from 'kafkajs'
-import Configuration from './Configuration'
 import { CustomMessageFormat } from './MessageProcessor'
 import Producer from './Producer'
 
@@ -21,7 +20,7 @@ export default class MessageHandler {
     })
 
     const topicMessages: TopicMessages = {
-      topic: Configuration.getProducerTopicName(),
+      topic: 'producer-topic',
       messages: kafkaMessages
     }
 
